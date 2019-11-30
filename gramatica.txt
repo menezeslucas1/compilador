@@ -1,0 +1,57 @@
+start       ::= program end-of-file
+program     ::= start [decl-list] stmt-list exit
+decl-list   ::= decl {decl}
+decl        ::= type ident-list ";"                    {ident-list.tipo = type.tipo}
+ident-list  ::= identifier {"," identifier}
+type        ::= int                                     {type.tipo = int}
+              | float                                   {type.tipo = float}
+              | string                                  {type.tipo = literal}
+stmt-list   ::= stmt {stmt}
+stmt        ::= assign-stmt ";"
+              | if-stmt
+              | while-stmt
+              | read-stmt ";"
+              | write-stmt ";"
+assign-stmt ::= identifier "=" simple_expr
+if-stmt     ::= if condition then stmt-list [else stmt-list] end
+condition   ::= expression
+while-stmt  ::= do stmt-list stmt-sufix
+stmt-sufix  ::= while condition end
+read-stmt   ::= scan "(" identifier ")"
+write-stmt  ::= print "(" writable ")"
+writable    ::= simple-expr
+expression  ::= simple-expr [relop simple-expr]
+simple-expr ::= term s-expr-cont
+s-expr-cont ::= [addop term s-expr-cont]
+term        ::= factor-a term-cont
+term-cont   ::= [mulop factor-a term-cont]
+fator-a     ::= factor
+              | not factor
+              | "-" factor
+factor      ::= identifier
+              | constant                             {factor.tipo = constant.tipo}
+              | "(" expression ")"
+relop       ::= "=="                                 {relop.tipo = eq}
+              | ">"                                       {relop.tipo = gt}
+              | ">="                                   {relop.tipo = ge}
+              | "<"                                  {relop.tipo = lt}
+              | "<="                                 {relop.tipo = le}
+              | "<>"                                 {relop.tipo = ne}
+addop       ::= "+"                                   {addop.tipo = mais}
+              | "-"                                  {addop.tipo = menos}
+              | or                                   {addop.tipo = or}
+mulop       ::= "*"                                    {mulop.tipo = mul}
+              | "/"                                      {mulop.tipo = div}
+              | and                                  {mulop.tipo = and}
+constant    ::= integer_const                            {constant.tipo = integer}
+              | float_const                         {constant.tipo = float}
+              | literal                             {constant.tipo = literal}
+
+integer_const ::= digit {digit}
+float_const   ::= digit{digit} “.”digit{digit}
+literal       ::= " " " {caractere} " " "
+identifier    ::= letter {letter | digit }
+letter        ::= [A-za-z]
+digit         ::= [0-9]
+caractere     ::= um dos caracteres ASCII, exceto " (aspas) e quebra de linha
+
