@@ -182,6 +182,8 @@ public class SyntaticAnalysis {
         case STRING:
             matchToken(TokenType.STRING);
             return BasicType.literal;
+        default:
+            return BasicType.erro;
         }
     }
     
@@ -397,7 +399,7 @@ public class SyntaticAnalysis {
     //         | constant 
     //         | "(" expression ")"
     private BasicType procFactor() throws IOException {
-        BasicType type;
+        BasicType type = BasicType.erro;
         switch (current.type) {
         case ID:
             type = global.get(current.type);
@@ -410,13 +412,11 @@ public class SyntaticAnalysis {
             return type;
         case OPEN_PAR:
             matchToken(TokenType.OPEN_PAR);
-            type = procExpression();
+            procExpression();
             matchToken(TokenType.CLOSE_PAR);
             return type;
-            break;
         default:
-//            System.out.println(lex.getLine() + ": Token esperado: identificador, numero ou string");
-            break;
+            return BasicType.erro;
         }
     }
     
