@@ -144,10 +144,17 @@ public class SyntaticAnalysis {
     
     //ident-list ::= identifier {"," identifier}
     private void procIdentList(BasicType type) throws IOException {
+        if (current.type != TokenType.ID){
+            System.out.printf("%3d: esperado identificador \n", lex.getLine());
+            System.out.printf("   : Token encontrado: %s\n", current.token);
+            do
+                current = lex.nextToken();
+            while (current.type != TokenType.ID);
+        }
         if (!global.containsKey(current.token))
             global.put(current.token, type);
         else
-            System.out.printf("%3d: variável já declarada\n", lex.getLine());
+            System.out.printf("%3d: variável já declarada: %s\n", lex.getLine(), current.token);
         matchToken(TokenType.ID);
         while(true){
             switch (current.type) {
@@ -156,7 +163,7 @@ public class SyntaticAnalysis {
                 if (!global.containsKey(current.token))
                     global.put(current.token, type);
                 else
-                    System.out.printf("%3d: variável já declarada\n", lex.getLine());
+            System.out.printf("%3d: variável já declarada: %s\n", lex.getLine(), current.token);
                     matchToken(TokenType.ID);
                 break;
             case DOT_COMMA:
@@ -247,7 +254,7 @@ public class SyntaticAnalysis {
         String id = current.token;
         BasicType expr;
         if (!global.containsKey(id))
-            System.out.printf("%3d: variável não declarada\n", lex.getLine());
+            System.out.printf("%3d: variável não declarada: %s\n", lex.getLine(), id);
         matchToken(TokenType.ID);
         matchToken(TokenType.ASSIGN);
         expr = procSimpleExpr();
@@ -308,7 +315,7 @@ public class SyntaticAnalysis {
         id = current.token;
         matchToken(TokenType.ID);
         if (!global.containsKey(id))
-            System.out.printf("%3d: variável não declarada\n", lex.getLine());
+            System.out.printf("%3d: variável não declarada: %s\n", lex.getLine(), id);
         matchToken(TokenType.CLOSE_PAR);
     }
     
@@ -350,15 +357,18 @@ public class SyntaticAnalysis {
             if (op1 == BasicType.erro || //ignora erros já detectados
                 op2 == BasicType.erro)
                 op1 = BasicType.erro;
+/*
             else if(op1 != BasicType.intValue &&
                op1 != BasicType.floatValue){
                 System.out.printf("%3d: tipo inválido\n", lex.getLine());
                 op1 = BasicType.erro;
             }
+*/
             else if (op1 != op2){
                 op1 = BasicType.erro;
                 System.out.printf("%3d: tipos diferentes \n", lex.getLine());
             }
+            op1 = BasicType.intValue;
             return op1;
         }
         return op1;
@@ -496,7 +506,7 @@ public class SyntaticAnalysis {
             id = current.token;
             matchToken(TokenType.ID);
             if (!global.containsKey(id))
-                System.out.printf("%3d: variável não declarada\n", lex.getLine());
+                System.out.printf("%3d: variável não declarada: %s\n", lex.getLine(), id);
             else
                 type = global.get(id);
             return type;
