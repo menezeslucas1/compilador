@@ -14,6 +14,7 @@ public class SyntaticAnalysis {
     private Lexeme current;
 //    private Map<String, Variable> global;
     private Map<String, BasicType> global;
+    private boolean erro;
 
     public SyntaticAnalysis(LexicalAnalysis lex) throws IOException {
         this.lex = lex;
@@ -72,7 +73,7 @@ public class SyntaticAnalysis {
                 break;
         }
 //	System.out.println("ERROR: " + current.token + ": " + current.type);
-        System.out.printf("   : Token inesperado: %s\n", current.token);
+        System.out.printf("     Token inesperado: %s\n", current.token);
 //        System.out.println(lex.getLine() + ": Token inesperado: "+current.token);
 //        System.exit(1);
 //        return;
@@ -156,7 +157,7 @@ public class SyntaticAnalysis {
                     global.put(current.token, type);
                 else
                     System.out.printf("%3d: variável já declarada\n", lex.getLine());
-                matchToken(TokenType.ID);
+                    matchToken(TokenType.ID);
                 break;
             case DOT_COMMA:
             case END_OF_FILE:
@@ -205,7 +206,7 @@ public class SyntaticAnalysis {
                 return;
             else if (current.type != TokenType.EXIT){
                 System.out.printf("%3d: Token esperado: próximo comando ou fim de arquivo\n", lex.getLine());
-                System.out.printf("   : Token encontrado: %s\n", current.token);
+                System.out.printf("     Token encontrado: %s\n", current.token);
 //                System.out.println(lex.getLine() + ": Token esperado: " +
 //                                 "próximo comando ou fim de arquivo");
 //                System.out.println(lex.getLine() + ": Token encontrado: " +
@@ -243,17 +244,30 @@ public class SyntaticAnalysis {
     
     //assign-stmt ::= identifier "=" simple_expr
     private void procAssignStmt() throws IOException {
-//        procIdentifier();
+        String id = current.token;
+        BasicType expr;
+        if (!global.containsKey(id))
+            System.out.printf("%3d: variável não declarada\n", lex.getLine());
         matchToken(TokenType.ID);
         matchToken(TokenType.ASSIGN);
-        procSimpleExpr();
+        expr = procSimpleExpr();
+        if (global.containsKey(id) &&
+            global.get(id) != expr &&
+            expr != BasicType.erro)//ignora erro já detectado
+            System.out.printf("%3d: atribuição inválida, tipos diferentes\n", lex.getLine());
+        
     }
     
     //if-stmt ::=   if condition then stmt-list end
     //            | if condition then stmt-list else stmt-list end
     private void procIfStmt() throws IOException {
+        BasicType cond;
         matchToken(TokenType.IF);
-        procCondition();
+        cond = procCondition();
+        if (cond == BasicType.erro){
+            System.out.printf("%3d: condição inválida\n", lex.getLine());
+        }
+
         matchToken(TokenType.THEN);
         procStmtList();
         if(current.type == TokenType.ELSE){
@@ -264,8 +278,8 @@ public class SyntaticAnalysis {
     }
     
     //condition ::= expression
-    private void procCondition() throws IOException {
-        procExpression();
+    private BasicType procCondition() throws IOException {
+        return procExpression();
     }
     
     //while-stmt ::= do stmt-list stmt-sufix
@@ -277,16 +291,24 @@ public class SyntaticAnalysis {
     
     //stmt-sufix ::= while condition end
     private void procStmtSufix() throws IOException {
+        BasicType cond;
         matchToken(TokenType.WHILE);
-        procCondition();
+        cond = procCondition();
+        if (cond == BasicType.erro){
+            System.out.printf("%3d: condição inválida\n", lex.getLine());
+        }
         matchToken(TokenType.END);
     }
     
     //read-stmt ::= scan "(" identifier ")"
     private void procReadStmt() throws IOException {
+        String id;
         matchToken(TokenType.SCAN);
         matchToken(TokenType.OPEN_PAR);
+        id = current.token;
         matchToken(TokenType.ID);
+        if (!global.containsKey(id))
+            System.out.printf("%3d: variável não declarada\n", lex.getLine());
         matchToken(TokenType.CLOSE_PAR);
     }
     
@@ -299,62 +321,132 @@ public class SyntaticAnalysis {
     }
     
     //writable ::= simple-expr
-    private void procWritable() throws IOException {
-            procSimpleExpr();
+    private BasicType procWritable() throws IOException {
+        BasicType expr;
+        expr = procSimpleExpr();
+/*
+        if (expr == BasicType.erro){
+            System.out.printf("%3d: impossível imprimir\n", lex.getLine());
+            return BasicType.erro;
+        }
+        else 
+*/
+        return expr;
     }
 
     //expression  ::= simple-expr [relop simple-expr]
-    private void procExpression() throws IOException {
-        procSimpleExpr();
+    private BasicType procExpression() throws IOException {
+        BasicType op1, op2;
+        OperatorType optype;
+        op1 = procSimpleExpr();
         if(current.type == TokenType.EQUAL ||
            current.type == TokenType.GREATER ||
            current.type == TokenType.GREATER_EQ ||
            current.type == TokenType.LESS ||
            current.type == TokenType.LESS_EQ ||
            current.type == TokenType.DIFF){
-            procRelop();
-            procSimpleExpr();
+            optype = procRelop();
+            op2 = procSimpleExpr();
+            if (op1 == BasicType.erro || //ignora erros já detectados
+                op2 == BasicType.erro)
+                op1 = BasicType.erro;
+            else if(op1 != BasicType.intValue &&
+               op1 != BasicType.floatValue){
+                System.out.printf("%3d: tipo inválido\n", lex.getLine());
+                op1 = BasicType.erro;
+            }
+            else if (op1 != op2){
+                op1 = BasicType.erro;
+                System.out.printf("%3d: tipos diferentes \n", lex.getLine());
+            }
+            return op1;
         }
+        return op1;
     }
     
     //simple-expr ::= term s-expr-cont
-    private void procSimpleExpr() throws IOException {
-        procTerm();
-        procSExprCont();
+    private BasicType procSimpleExpr() throws IOException {
+        BasicType op1;
+        op1 = procTerm();
+        op1 = procSExprCont(op1);
+        return op1;
     }
     
     //s-expr-cont ::= [addop term s-expr-cont]
-    private void procSExprCont() throws IOException {
+    private BasicType procSExprCont(BasicType op1) throws IOException {
         if (current.type == TokenType.ADD ||
             current.type == TokenType.SUB ||
             current.type == TokenType.OR){
-            procAddop();
-            procTerm();
-            procSExprCont();
+            OperatorType optype;
+            BasicType op2;
+            optype = procAddop();
+            op2 = procTerm();
+            if (op1 == BasicType.erro || //ignora erros já detectados
+                op2 == BasicType.erro)
+                op1 = BasicType.erro;
+            else{
+                if (optype == OperatorType.add)
+                    if(op1 != BasicType.intValue &&
+                       op1 != BasicType.floatValue &&
+                       op1 != BasicType.literal){
+                        System.out.printf("%3d: tipo inválido\n", lex.getLine());
+                        op1 = BasicType.erro;
+                    }
+                else
+                    if(op1 != BasicType.intValue &&
+                       op1 != BasicType.floatValue){
+                        System.out.printf("%3d: tipo inválido\n", lex.getLine());
+                        op1 = BasicType.erro;
+                    }
+                if (op1 != op2){
+                    System.out.printf("%3d: tipos diferentes \n", lex.getLine());
+                    op1 = BasicType.erro;
+                }
+            }
+            return procSExprCont(op1);
         }
+        return op1;
     }
     
     //term ::= factor-a term-cont
-    private void procTerm() throws IOException {
-        procFactorA();
-        procTermCont();
+    private BasicType procTerm() throws IOException {
+        BasicType op1;
+        op1 = procFactorA();
+        op1 = procTermCont(op1);
+        return op1;
     }
     
     //term-cont ::= [mulop factor-a term-cont]
-    private void procTermCont() throws IOException {
+    private BasicType procTermCont(BasicType op1) throws IOException {
+        OperatorType optype;
+        BasicType op2;
         if (current.type == TokenType.MUL ||
             current.type == TokenType.DIV ||
             current.type == TokenType.AND){
-            procMulop();
-            procFactorA();
-            procTermCont();
+            optype = procMulop();
+            op2 = procFactorA();
+            if(op1 == BasicType.erro || //ignora erros já detectados
+               op2 == BasicType.erro)
+                op1 = BasicType.erro;
+            else if (op1 != BasicType.intValue &&
+                     op1 != BasicType.floatValue){
+                System.out.printf("%3d: tipo inválido\n", lex.getLine());
+                op1 = BasicType.erro;
+            }
+            else if (op1 != op2 ){
+                System.out.printf("%3d: tipos diferentes \n", lex.getLine());
+                op1 = BasicType.erro;
+            }
+            else
+                return procTermCont(op1);
         }
+        return op1;
     }
     
     //fator-a ::= factor 
     //          | not factor 
     //          | "-" factor
-    private void procFactorA() throws IOException {
+    private BasicType procFactorA() throws IOException {
         do{
             switch (current.type) {
             case ID:
@@ -362,19 +454,16 @@ public class SyntaticAnalysis {
             case FLOATV:
             case STRING:
             case OPEN_PAR:
-                procFactor();
-                return;
+                return procFactor();
             case NOT:
                 matchToken(TokenType.NOT);
-                procFactor();
-                return;
+                return procFactor();
             case SUB:
                 matchToken(TokenType.SUB);
-                procFactor();
-                return;
+                return procFactor();
             default:
                 System.out.printf("%3d: Token esperado: identificador, número, string\n", lex.getLine());
-                System.out.printf("   : Token encontrado: %s\n", current.token);
+                System.out.printf("     Token encontrado: %s\n", current.token);
 
     //            System.out.println(lex.getLine() + ": Token esperado: " +
     //                             "identificador, número, string,");
@@ -388,9 +477,10 @@ public class SyntaticAnalysis {
                        current.type != TokenType.END_OF_FILE){
                     current = lex.nextToken();
                 }
+                current = lex.nextToken();
                 if (current.type == TokenType.END_OF_FILE)
-                    return;
-                break;
+                    return BasicType.erro;
+                return BasicType.erro;
             }
         }while(true);
     }
@@ -399,11 +489,16 @@ public class SyntaticAnalysis {
     //         | constant 
     //         | "(" expression ")"
     private BasicType procFactor() throws IOException {
+        String id;
         BasicType type = BasicType.erro;
         switch (current.type) {
         case ID:
-            type = global.get(current.type);
+            id = current.token;
             matchToken(TokenType.ID);
+            if (!global.containsKey(id))
+                System.out.printf("%3d: variável não declarada\n", lex.getLine());
+            else
+                type = global.get(id);
             return type;
         case INTV:
         case FLOATV:
@@ -412,7 +507,7 @@ public class SyntaticAnalysis {
             return type;
         case OPEN_PAR:
             matchToken(TokenType.OPEN_PAR);
-            procExpression();
+            type = procExpression();
             matchToken(TokenType.CLOSE_PAR);
             return type;
         default:
@@ -447,6 +542,7 @@ public class SyntaticAnalysis {
             matchToken(TokenType.DIFF);
             return OperatorType.ne;
         default:
+            System.out.println(lex.getLine()+"esperado operador: == > >= < <= <>");
             return OperatorType.error;
         }
     }
@@ -466,6 +562,7 @@ public class SyntaticAnalysis {
             matchToken(TokenType.OR);
             return OperatorType.or;
         default:
+            System.out.println(lex.getLine()+"esperado operador: + - or");
             return OperatorType.error;
         }
     }
@@ -485,6 +582,7 @@ public class SyntaticAnalysis {
             matchToken(TokenType.AND);
             return OperatorType.and;
         default:
+            System.out.println(lex.getLine()+"esperado operador: * / and");
             return OperatorType.error;
         }
     }
@@ -504,6 +602,7 @@ public class SyntaticAnalysis {
             matchToken(TokenType.STRING);
             return BasicType.literal;
         default:
+            System.out.println(lex.getLine()+": esperado constante: número ou literal");
             return BasicType.erro;
         }
     }
