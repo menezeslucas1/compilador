@@ -1,0 +1,6 @@
+Para evitar adicionar credenciais como globais
+$ git -c user.name="nome" -c user.email="email@mail.com" commit -m "mensagem"
+
+Para evitar escrever um comando longo várias vezes
+$ git config alias.nomecommit "-c user.name='nome' -c user.email="email@mail.com' commit "
+
