@@ -395,19 +395,16 @@ public class SyntaticAnalysis {
                 op2 == BasicType.erro)
                 op1 = BasicType.erro;
             else{
-                if (optype == OperatorType.add)
-                    if(op1 != BasicType.intValue &&
-                       op1 != BasicType.floatValue &&
-                       op1 != BasicType.literal){
-                        System.out.printf("%3d: tipo inválido\n", lex.getLine());
-                        op1 = BasicType.erro;
-                    }
-                else
+                if (optype == OperatorType.add){
+                    op1 = op2;
+                }
+                else{
                     if(op1 != BasicType.intValue &&
                        op1 != BasicType.floatValue){
                         System.out.printf("%3d: tipo inválido\n", lex.getLine());
                         op1 = BasicType.erro;
                     }
+                }
                 if (op1 != op2){
                     System.out.printf("%3d: tipos diferentes \n", lex.getLine());
                     op1 = BasicType.erro;
